@@ -1,0 +1,18 @@
+# Match rule keyed off content the web_access parser already flagged. This
+# shows how parser-time enrichment (siem/parsers/web_access.py tagging
+# suspicious_patterns) and rule-time matching work together, the same
+# division of labor as Sigma's "log source" vs. "detection" sections.
+id: web-sqli-attempt
+name: Possible SQL Injection Attempt
+description: An HTTP request path matched a SQL-injection-style pattern
+severity: high
+cooldown_seconds: 60
+detection:
+  type: match
+  match:
+    equals:
+      source: web_access
+      event_type: web_request
+    contains:
+      path: "union select"
+  group_by: src_ip

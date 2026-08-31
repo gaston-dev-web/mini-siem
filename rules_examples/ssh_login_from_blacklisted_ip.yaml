@@ -1,0 +1,17 @@
+# Match rule: a single event is enough to alert when the actor is already
+# known-bad. This is the "blacklist"/threat-intel matching pattern -- the
+# simplest and most common class of detection rule in production SIEMs.
+id: ssh-login-from-blacklisted-ip
+name: SSH Login Attempt From Known-Malicious IP
+description: An SSH authentication attempt originated from an IP on the known_malicious_ips list
+severity: critical
+cooldown_seconds: 300
+detection:
+  type: match
+  match:
+    equals:
+      source: sshd
+      event_type: authentication
+    in_list:
+      src_ip: known_malicious_ips
+  group_by: src_ip

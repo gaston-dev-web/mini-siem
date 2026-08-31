@@ -1,0 +1,4 @@
+# Known-malicious source IPs (illustrative / synthetic -- not real threat intel).
+# One IP per line. Lines starting with # are ignored.
+198.51.100.66
+203.0.113.13

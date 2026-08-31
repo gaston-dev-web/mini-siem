@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>mini-siem dashboard</title>
+<style>
+  :root {
+    --bg: #0f1420; --panel: #161d2e; --border: #26304a; --text: #e6e9f2;
+    --muted: #8a93a8; --accent: #4f8cff;
+    --crit: #ff4d6d; --high: #ff9f43; --med: #f2d94e; --low: #4fd1c5;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, Segoe UI, Roboto, sans-serif;
+    background: var(--bg); color: var(--text);
+  }
+  header {
+    padding: 16px 24px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: baseline; gap: 12px;
+  }
+  header h1 { font-size: 18px; margin: 0; }
+  header span { color: var(--muted); font-size: 13px; }
+  main { padding: 20px 24px; display: grid; gap: 20px; }
+  .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px,1fr)); gap: 12px; }
+  .stat-card {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px 16px;
+  }
+  .stat-card .value { font-size: 26px; font-weight: 600; }
+  .stat-card .label { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
+  .panel {
+    background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px; overflow-x: auto;
+  }
+  .panel h2 { margin: 0 0 12px; font-size: 14px; color: var(--muted); text-transform: uppercase; letter-spacing: .04em; }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th, td { text-align: left; padding: 6px 10px; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  th { color: var(--muted); font-weight: 500; }
+  .sev { padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 600; color: #111; }
+  .sev.critical { background: var(--crit); color: white; }
+  .sev.high { background: var(--high); }
+  .sev.medium { background: var(--med); }
+  .sev.low { background: var(--low); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  @media (max-width: 900px) { .grid2 { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<header>
+  <h1>mini-siem</h1>
+  <span id="refresh-note">auto-refreshing every 5s</span>
+</header>
+<main>
+  <div class="stats" id="stats"></div>
+  <div class="grid2">
+    <div class="panel">
+      <h2>Recent Alerts</h2>
+      <table>
+        <thead><tr><th>Time</th><th>Severity</th><th>Rule</th><th>Group</th><th>Description</th></tr></thead>
+        <tbody id="alerts-body"></tbody>
+      </table>
+    </div>
+    <div class="panel">
+      <h2>Recent Events</h2>
+      <table>
+        <thead><tr><th>Time</th><th>Source</th><th>Type</th><th>Outcome</th><th>Src IP</th><th>User</th><th>Message</th></tr></thead>
+        <tbody id="events-body"></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="panel">
+    <h2>Top Source IPs</h2>
+    <table>
+      <thead><tr><th>IP</th><th>Event Count</th></tr></thead>
+      <tbody id="top-ips-body"></tbody>
+    </table>
+  </div>
+</main>
+
+<script>
+async function fetchJSON(url) {
+  const res = await fetch(url);
+  return res.json();
+}
+
+function esc(s) {
+  return String(s ?? "").replace(/[&<>]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));
+}
+
+async function refresh() {
+  const [stats, alerts, events] = await Promise.all([
+    fetchJSON("/api/stats"),
+    fetchJSON("/api/alerts?limit=25"),
+    fetchJSON("/api/events?limit=25"),
+  ]);
+
+  document.getElementById("stats").innerHTML = `
+    <div class="stat-card"><div class="value">${stats.total_events}</div><div class="label">Total Events</div></div>
+    <div class="stat-card"><div class="value">${stats.total_alerts}</div><div class="label">Total Alerts</div></div>
+    <div class="stat-card"><div class="value">${stats.alerts_by_severity.critical || 0}</div><div class="label">Critical Alerts</div></div>
+    <div class="stat-card"><div class="value">${stats.alerts_by_severity.high || 0}</div><div class="label">High Alerts</div></div>
+  `;
+
+  document.getElementById("alerts-body").innerHTML = alerts.map(a => `
+    <tr>
+      <td>${esc(a.timestamp)}</td>
+      <td><span class="sev ${esc(a.severity)}">${esc(a.severity)}</span></td>
+      <td>${esc(a.rule_name)}</td>
+      <td>${esc(a.group_key)}</td>
+      <td>${esc(a.description)}</td>
+    </tr>`).join("") || `<tr><td colspan="5" style="color:var(--muted)">No alerts yet</td></tr>`;
+
+  document.getElementById("events-body").innerHTML = events.map(e => `
+    <tr>
+      <td>${esc(e.timestamp)}</td>
+      <td>${esc(e.source)}</td>
+      <td>${esc(e.event_type)}</td>
+      <td>${esc(e.outcome)}</td>
+      <td>${esc(e.src_ip)}</td>
+      <td>${esc(e.user)}</td>
+      <td>${esc(e.message)}</td>
+    </tr>`).join("") || `<tr><td colspan="7" style="color:var(--muted)">No events yet</td></tr>`;
+
+  document.getElementById("top-ips-body").innerHTML = (stats.top_src_ips || []).map(r => `
+    <tr><td>${esc(r.ip)}</td><td>${r.count}</td></tr>`).join("") || `<tr><td colspan="2" style="color:var(--muted)">No data yet</td></tr>`;
+}
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

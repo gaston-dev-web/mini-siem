@@ -1,0 +1,20 @@
+# unique_count rule: one source IP touching many distinct destination ports
+# in a short window is a classic port-scan signature (nmap and similar
+# tools). Counting matching events isn't enough here -- what matters is the
+# *diversity* of ports touched, which is why this needs its own rule type
+# distinct from a plain threshold.
+id: port-scan-detected
+name: Possible Port Scan
+description: A single source IP contacted 10+ distinct destination ports within 30 seconds
+severity: medium
+cooldown_seconds: 180
+detection:
+  type: unique_count
+  match:
+    equals:
+      source: firewall
+      event_type: network
+  group_by: src_ip
+  unique_field: dst_port
+  threshold: 10
+  window_seconds: 30
