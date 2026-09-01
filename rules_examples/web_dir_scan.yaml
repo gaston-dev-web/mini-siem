@@ -1,6 +1,6 @@
-# Threshold rule: many failed SSH logins from the same source IP in a short
-# window is the textbook signature of a brute-force / credential-stuffing
-# attack. This mirrors real Sigma rules like "Multiple Failed Logins".
+# Threshold rule: a burst of 404s from one source IP is the signature of a
+# directory/content scanner (gobuster, dirb, ffuf) probing for hidden paths.
+# Legitimate users rarely produce more than a handful of 404s in a minute.
 id: web-dir-scan
 name: Possible Directory Scan
 description:  20+ HTTP 404 responses to the same source IP within 60 seconds

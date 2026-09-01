@@ -24,6 +24,14 @@ from siem.models import Event
 BENIGN_USERS = ["gaston", "deploy", "backup", "monitoring"]
 BENIGN_IPS = ["192.168.1.10", "192.168.1.11", "10.0.0.5"]
 ATTACKER_IPS = ["203.0.113.5", "198.51.100.66", "203.0.113.13"]
+SCANNER_IP = "203.0.113.77"
+SCANNER_WORDLIST = [
+    "/admin", "/administrator", "/wp-admin", "/phpmyadmin", "/.env", "/.git/config",
+    "/backup.zip", "/config.php", "/db.sql", "/server-status", "/api/v1/users",
+    "/login.bak", "/test.php", "/uploads", "/private", "/cgi-bin/test.cgi",
+    "/.aws/credentials", "/old", "/tmp", "/staging", "/debug", "/console",
+    "/actuator/env", "/.ssh/id_rsa", "/shell.php",
+]
 
 
 def _fmt_syslog(ts: datetime) -> str:
@@ -70,6 +78,14 @@ def gen_web_lines(start: datetime) -> list[str]:
     for payload in ["/product?id=1' OR '1'='1", "/product?id=1 UNION SELECT username,password FROM users--"]:
         ts = t.strftime("%d/%b/%Y:%H:%M:%S +0000")
         lines.append(f'{attacker} - - [{ts}] "GET {payload} HTTP/1.1" 500 512')
+        t += timedelta(seconds=1)
+
+    # Directory scanner: a burst of 404s from one IP as it walks a wordlist
+    # looking for hidden admin panels, backups and secrets.
+    scanner = SCANNER_IP
+    for path in SCANNER_WORDLIST:
+        ts = t.strftime("%d/%b/%Y:%H:%M:%S +0000")
+        lines.append(f'{scanner} - - [{ts}] "GET {path} HTTP/1.1" 404 209')
         t += timedelta(seconds=1)
 
     return lines
