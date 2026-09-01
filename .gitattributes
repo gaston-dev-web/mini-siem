@@ -1,0 +1,12 @@
+# Store everything with LF in the repository AND check it out with LF, so the
+# files are byte-identical on Windows, macOS and Linux. This is what stops Git
+# printing "LF will be replaced by CRLF" on every `git add` under Windows.
+# Python, YAML and every modern Windows editor handle LF without complaint.
+* text=auto eol=lf
+
+# Never touch line endings in binary files.
+*.png binary
+*.jpg binary
+*.ico binary
+*.zip binary
+*.db binary

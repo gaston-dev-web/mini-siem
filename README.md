@@ -1,5 +1,8 @@
 # mini-siem
 
+[![CI](https://github.com/gaston-dev-web/mini-siem/actions/workflows/ci.yml/badge.svg)](https://github.com/gaston-dev-web/mini-siem/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A small SIEM (Security Information and Event Management) system, built from
 scratch in Python, to actually understand how one works internally rather
 than just clicking around a vendor product. Everything a real SIEM does —
