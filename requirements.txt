@@ -1,4 +1,7 @@
-fastapi==0.115.0
-uvicorn==0.30.6
-pyyaml==6.0.2
-requests==2.32.3
+# Minimum versions rather than exact pins, so pip can pick a build that has a
+# prebuilt wheel for whatever Python version you're on (an exact pin on an
+# older release forces a source build, which needs a C compiler).
+fastapi>=0.115.0
+uvicorn>=0.30.6
+pyyaml>=6.0.2
+requests>=2.32.3
