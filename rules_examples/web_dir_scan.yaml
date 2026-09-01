@@ -1,0 +1,18 @@
+# Threshold rule: many failed SSH logins from the same source IP in a short
+# window is the textbook signature of a brute-force / credential-stuffing
+# attack. This mirrors real Sigma rules like "Multiple Failed Logins".
+id: web-dir-scan
+name: Possible Directory Scan
+description:  20+ HTTP 404 responses to the same source IP within 60 seconds
+severity: medium
+cooldown_seconds: 120
+detection:
+  type: threshold
+  match:
+    equals:
+      source: web_access
+      event_type: web_request
+      http_status: 404
+  group_by: src_ip
+  threshold: 20
+  window_seconds: 60
