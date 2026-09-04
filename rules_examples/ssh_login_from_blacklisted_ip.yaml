@@ -5,6 +5,8 @@ id: ssh-login-from-blacklisted-ip
 name: SSH Login Attempt From Known-Malicious IP
 description: An SSH authentication attempt originated from an IP on the known_malicious_ips list
 severity: critical
+mitre_attack: none
+mitre_tactic: none  # intel-based detection, not behaviour-based
 cooldown_seconds: 300
 detection:
   type: match

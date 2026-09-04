@@ -5,6 +5,8 @@ id: ssh-brute-force
 name: SSH Brute Force
 description: 5+ failed SSH authentication attempts from the same source IP within 60 seconds
 severity: high
+mitre_attack: T1110.001
+mitre_tactic: Credential Access
 cooldown_seconds: 120
 detection:
   type: threshold

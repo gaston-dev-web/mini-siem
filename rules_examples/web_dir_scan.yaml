@@ -5,6 +5,8 @@ id: web-dir-scan
 name: Possible Directory Scan
 description:  20+ HTTP 404 responses to the same source IP within 60 seconds
 severity: medium
+mitre_attack: T1595.003
+mitre_tactic: Reconnaissance
 cooldown_seconds: 120
 detection:
   type: threshold

@@ -6,6 +6,8 @@ id: web-sqli-attempt
 name: Possible SQL Injection Attempt
 description: An HTTP request path matched a SQL-injection-style pattern
 severity: high
+mitre_attack: T1190
+mitre_tactic: Initial Access
 cooldown_seconds: 60
 detection:
   type: match

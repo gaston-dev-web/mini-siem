@@ -7,6 +7,8 @@ id: port-scan-detected
 name: Possible Port Scan
 description: A single source IP contacted 10+ distinct destination ports within 30 seconds
 severity: medium
+mitre_attack: T1595.001
+mitre_tactic: Reconnaissance
 cooldown_seconds: 180
 detection:
   type: unique_count
