@@ -1,0 +1,17 @@
+# TODO: write 2-3 comment lines explaining what this rule catches
+# and how it differs from web_dir_scan.yaml
+id: web-dir-scan-slow
+name: Possible Slow Directory Scan
+description: TODO - write one line describing exactly what this fires on
+severity: low
+cooldown_seconds: 900
+detection:
+  type: threshold
+  match:
+    equals:
+      source: web_access
+      event_type: web_request
+      http_status: 404
+  group_by: src_ip
+  threshold: 20
+  window_seconds: 600
