@@ -74,6 +74,19 @@ def gen_web_lines(start: datetime) -> list[str]:
         lines.append(f'{ip} - - [{ts}] "GET /index.html HTTP/1.1" 200 1024')
         t += timedelta(seconds=random.randint(2, 10))
 
+    # Legitimate visitors hitting dead links: a stale bookmark, a missing
+    # favicon, an image path that moved. Every real site produces these, and
+    # they are the false positives a badly-tuned 404 rule will fire on.
+    for ip, dead_paths in [
+        ("192.168.1.11", ["/old-pricing", "/favicon.ico", "/img/logo-2019.png", "/blog/archive"]),
+        ("10.0.0.5", ["/careers/old", "/favicon.ico", "/downloads/handbook.pdf"]),
+    ]:
+        t2 = start + timedelta(seconds=random.randint(2, 8))
+        for path in dead_paths:
+            ts = t2.strftime("%d/%b/%Y:%H:%M:%S +0000")
+            lines.append(f'{ip} - - [{ts}] "GET {path} HTTP/1.1" 404 209')
+            t2 += timedelta(seconds=random.randint(2, 9))
+
     attacker = ATTACKER_IPS[2]
     for payload in ["/product?id=1' OR '1'='1", "/product?id=1 UNION SELECT username,password FROM users--"]:
         ts = t.strftime("%d/%b/%Y:%H:%M:%S +0000")
