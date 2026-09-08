@@ -1,0 +1,24 @@
+# Detecta conexiones SSH exitosas desde una misma IP de origen
+# hacia tres hosts distintos dentro de cinco minutos.
+# Puede indicar movimiento lateral dentro de la red.
+id: ssh-lateral-movement
+name: SSH Lateral Movement
+description: 3+ successful SSH authentications from the same source IP to different hosts within 300 seconds
+severity: high
+mitre_attack: T1021.004
+mitre_tactic: Lateral Movement
+cooldown_seconds: 600
+falsepositives:
+  - Legitimate administrator connecting to multiple servers during maintenance or troubleshooting
+  - Legitimate SSH connections from an authorized bastion host or jump host
+detection:
+  type: unique_count
+  match:
+    equals:
+      source: sshd
+      event_type: authentication
+      outcome: success
+  group_by: src_ip
+  unique_field: host
+  threshold: 3
+  window_seconds: 300

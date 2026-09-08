@@ -80,3 +80,56 @@ def test_web_dir_scan_counts_each_source_ip_separately():
         alerts += engine.process_event(_web_404(ts, f"192.168.1.{i + 1}"))
 
     assert alerts == []
+
+
+# ---------------------------------------------------------------------------
+# ssh-lateral-movement (T1021.004)
+# ---------------------------------------------------------------------------
+
+def _ssh_auth(ts: str, src_ip: str, host: str, outcome: str, user: str = "gaston") -> Event:
+    """Un evento con la forma exacta que produce siem/parsers/sshd.py."""
+    return Event.new(
+        timestamp=ts, source="sshd", event_type="authentication",
+        outcome=outcome, src_ip=src_ip, user=user,
+        message=f"{outcome} password for {user} from {src_ip}",
+        extra={"host": host, "port": 51000},
+    )
+
+
+def test_ssh_lateral_movement_fires_on_multiple_hosts():
+    engine = _engine_for("ssh-lateral-movement")
+    base = datetime.now(timezone.utc)
+
+    alerts = []
+    for i, host in enumerate(["web01", "db01", "app01"]):
+        ts = (base + timedelta(seconds=i * 20)).isoformat()
+        alerts += engine.process_event(_ssh_auth(ts, "192.168.1.50", host, "success"))
+
+    assert len(alerts) == 1, "se esperaba exactamente una alerta de movimiento lateral"
+    assert alerts[0].group_key == "192.168.1.50"
+
+
+def test_ssh_lateral_movement_ignores_failed_authentications():
+    """Tres fallos contra tres hosts no son movimiento lateral. Prueba `outcome: success`."""
+    engine = _engine_for("ssh-lateral-movement")
+    base = datetime.now(timezone.utc)
+
+    alerts = []
+    for i, host in enumerate(["web01", "db01", "app01"]):
+        ts = (base + timedelta(seconds=i * 20)).isoformat()
+        alerts += engine.process_event(_ssh_auth(ts, "192.168.1.50", host, "failure"))
+
+    assert alerts == []
+
+
+def test_ssh_lateral_movement_ignores_repeated_logins_to_one_host():
+    """Tres logins al mismo servidor es trabajo normal. Prueba `unique_field: host`."""
+    engine = _engine_for("ssh-lateral-movement")
+    base = datetime.now(timezone.utc)
+
+    alerts = []
+    for i in range(3):
+        ts = (base + timedelta(seconds=i * 20)).isoformat()
+        alerts += engine.process_event(_ssh_auth(ts, "192.168.1.50", "web01", "success"))
+
+    assert alerts == []
