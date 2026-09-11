@@ -7,7 +7,7 @@ description: 5+ failed SSH authentication attempts from the same source IP withi
 severity: high
 mitre_attack: T1110.001
 mitre_tactic: Credential Access
-cooldown_seconds: 120
+cooldown_seconds: 600
 detection:
   type: threshold
   match:
