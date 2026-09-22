@@ -240,9 +240,17 @@ clasificaría como compromiso.
 4. **Ampliar la detección de intentos de baja frecuencia:** complementar la regla
    existente con ventanas más largas y agrupaciones por IP y usuario para
    mejorar la cobertura de actividad que queda bajo los umbrales actuales.
+   (Nota: agrupar por dos campos a la vez no está soportado por el motor actual
+   — es un pendiente de desarrollo, no un cambio de configuración.)
 5. **Corregir el parser e incorporar reglas de secuencia:** reconocer aperturas y
    cierres de sesión y detectar fallos seguidos de un acceso exitoso para
    facilitar la investigación.
+
+No se recomienda bloquear las IPs observadas. La infraestructura identificada en
+H2 es una instancia de nube alquilada, y bloquear direcciones desechables de a
+una aporta poco frente a los cambios de configuración de arriba. Limitar la tasa
+de intentos en el propio host (por ejemplo con fail2ban) ataca el mismo problema
+sin depender de una lista de direcciones.
 
 ---
 

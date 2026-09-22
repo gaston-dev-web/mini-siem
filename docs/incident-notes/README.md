@@ -61,4 +61,5 @@ would close them.
 
 ## Analysis reports *(real Loghub capture)*
 
-- [SSH capture analysis — host `LabSZ`, 4 hours](2026-12-10-openssh-labsz-analisis.md) *(Spanish)* — 524 failed attempts from 24 IPs, one successful login pending verification
+- [SSH capture analysis — host `LabSZ`, 4 hours](2026-12-10-openssh-labsz-analysis.md) — 524 failed attempts from 24 IPs, one successful login pending verification
+  ([Spanish original](2026-12-10-openssh-labsz-analisis.md))
