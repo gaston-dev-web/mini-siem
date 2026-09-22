@@ -133,3 +133,69 @@ def test_ssh_lateral_movement_ignores_repeated_logins_to_one_host():
         alerts += engine.process_event(_ssh_auth(ts, "192.168.1.50", "web01", "success"))
 
     assert alerts == []
+
+# ---------------------------------------------------------------------------
+# ssh-brute-force-slow (T1110.001) -- regla de densidad
+#
+# Estas pruebas existen para demostrar algo que ninguna regla de umbral puede
+# hacer: callarse cuando el atacante es ruidoso. Por eso hay un escenario
+# negativo con MAS eventos que el positivo.
+# ---------------------------------------------------------------------------
+
+def test_ssh_brute_force_slow_fires_on_a_patient_attacker():
+    """5 fallos repartidos en 160 minutos = 0,03 fallos/min. Debe disparar UNA vez."""
+    engine = _engine_for("ssh-brute-force-slow")
+    base = datetime.now(timezone.utc)
+
+    alerts = []
+    for i in range(5):
+        ts = (base + timedelta(minutes=i * 40)).isoformat()
+        alerts += engine.process_event(_ssh_auth(ts, "52.80.34.196", "LabSZ", "failure"))
+
+    assert len(alerts) == 1, "se esperaba exactamente una alerta lenta"
+    assert alerts[0].group_key == "52.80.34.196"
+    assert alerts[0].context["count"] == 5
+    assert alerts[0].context["events_per_minute"] <= 0.1
+
+
+def test_ssh_brute_force_slow_ignores_a_loud_attacker():
+    """50 fallos en 50 segundos superan el umbral pero NO son lentos.
+
+    Este es el escenario que justifica el tipo de regla: mas eventos que el
+    caso positivo y, aun asi, silencio. De eso se encarga ssh-brute-force.
+    """
+    engine = _engine_for("ssh-brute-force-slow")
+    base = datetime.now(timezone.utc)
+
+    alerts = []
+    for i in range(50):
+        ts = (base + timedelta(seconds=i)).isoformat()
+        alerts += engine.process_event(_ssh_auth(ts, "183.62.140.253", "LabSZ", "failure"))
+
+    assert alerts == [], "un atacante ruidoso no debe disparar la regla de densidad"
+
+
+def test_ssh_brute_force_slow_ignores_four_spread_out_failures():
+    """Cuatro fallos lentos siguen por debajo del umbral. Prueba `threshold: 5`."""
+    engine = _engine_for("ssh-brute-force-slow")
+    base = datetime.now(timezone.utc)
+
+    alerts = []
+    for i in range(4):
+        ts = (base + timedelta(minutes=i * 40)).isoformat()
+        alerts += engine.process_event(_ssh_auth(ts, "52.80.34.196", "LabSZ", "failure"))
+
+    assert alerts == []
+
+
+def test_ssh_brute_force_slow_ignores_successful_logins():
+    """Cinco logins exitosos y espaciados son un usuario normal. Prueba `outcome: failure`."""
+    engine = _engine_for("ssh-brute-force-slow")
+    base = datetime.now(timezone.utc)
+
+    alerts = []
+    for i in range(5):
+        ts = (base + timedelta(minutes=i * 40)).isoformat()
+        alerts += engine.process_event(_ssh_auth(ts, "192.168.1.50", "LabSZ", "success"))
+
+    assert alerts == []

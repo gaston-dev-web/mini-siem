@@ -64,7 +64,7 @@ Every stage maps onto a real-world SIEM concept:
 
 Rules are declarative YAML files (see `rules_examples/`), kept deliberately
 close to how [Sigma](https://github.com/SigmaHQ/sigma) rules are structured,
-so what you learn here transfers directly. Three detection types cover the
+so what you learn here transfers directly. Four detection types cover the
 large majority of real-world correlation logic:
 
 - **`match`** — a single event is inherently suspicious (e.g. a login
@@ -74,6 +74,15 @@ large majority of real-world correlation logic:
 - **`unique_count`** — one actor touching too many *distinct* values of a
   field within a window (e.g. one IP hitting 10+ different destination
   ports in 30s → port scan).
+- **`low_and_slow`** — enough matching events in a long window, but arriving
+  *below* a maximum rate (e.g. 5 failed SSH logins over 4 hours at ≤ 0.1
+  per minute → an attacker deliberately staying under the threshold rule).
+
+The first three measure **volume**; the fourth measures **density**. That
+distinction is not academic: on the real OpenSSH capture in `sample_logs/`,
+every noisy attacker also produced 5+ failures, so no volume threshold in a
+4-hour window can isolate the patient one. The rate can — 0.03 failures/min
+versus 0.41 for the next slowest and 27.95 for the loudest.
 
 Example (`rules_examples/ssh_brute_force.yaml`):
 
@@ -99,10 +108,14 @@ Included out of the box:
 
 | Rule | Type | Detects |
 |---|---|---|
-| `ssh_brute_force.yaml` | threshold | Repeated failed SSH logins from one IP |
+| `ssh_brute_force.yaml` | threshold | Repeated failed SSH logins from one IP (T1110.001) |
+| `ssh_brute_force_slow.yaml` | low_and_slow | The same attack, spread thin to evade the threshold rule (T1110.001) |
+| `ssh_lateral_movement.yaml` | unique_count | One IP authenticating successfully to several hosts (T1021.004) |
 | `ssh_login_from_blacklisted_ip.yaml` | match + list | SSH auth attempt from a known-bad IP (`rules_examples/lists/known_malicious_ips.txt`) |
-| `web_sqli_attempt.yaml` | match | HTTP request path containing a SQL-injection pattern |
-| `port_scan.yaml` | unique_count | One IP touching many distinct destination ports quickly |
+| `web_sqli_attempt.yaml` | match | HTTP request path containing a SQL-injection pattern (T1190) |
+| `port_scan.yaml` | unique_count | One IP touching many distinct destination ports quickly (T1595.001) |
+| `web_dir_scan.yaml` | unique_count | One IP probing many distinct URLs and getting 404s (T1595.003) |
+| `web_dir_scan_slow.yaml` | unique_count | The same scan, paced slowly over a wider window (T1595.003) |
 
 Writing your own rule is just adding a new YAML file to `rules_examples/` —
 no code changes needed. That's the same separation of "detection logic" vs.

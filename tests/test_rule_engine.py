@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
+import pytest
+
 from siem.models import Event
 from siem.rules.engine import Rule, RuleEngine
 
@@ -152,3 +154,24 @@ def test_unique_count_rule_ignores_repeated_ports():
         alerts += engine.process_event(event)
 
     assert alerts == []
+
+
+# ---------------------------------------------------------------------------
+# Validacion del tipo low_and_slow
+#
+# Un SIEM debe fallar RUIDOSAMENTE ante una regla imposible. Una regla que
+# nunca puede dispararse se ve igual que una red tranquila.
+# ---------------------------------------------------------------------------
+
+def test_low_and_slow_requires_max_events_per_minute():
+    with pytest.raises(ValueError, match="requires 'max_events_per_minute'"):
+        Rule(id="r", name="r", description="", severity="low",
+             type="low_and_slow", threshold=5, window_seconds=14400)
+
+
+def test_low_and_slow_rejects_an_impossible_window():
+    """5 eventos a <= 0,1/min necesitan 50 minutos; una ventana de 60 s no alcanza."""
+    with pytest.raises(ValueError, match="impossible rule"):
+        Rule(id="r", name="r", description="", severity="low",
+             type="low_and_slow", threshold=5, window_seconds=60,
+             max_events_per_minute=0.1)

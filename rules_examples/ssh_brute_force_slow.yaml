@@ -1,0 +1,36 @@
+# Regla de densidad ("low and slow"): el mismo atacante que ssh-brute-force,
+# pero con paciencia. En sample_logs/openssh_real.log la IP 52.80.34.196 hizo
+# 5 intentos fallidos repartidos en 193 minutos: 0,03 fallos/min. Ningun umbral
+# de volumen la separa de los atacantes ruidosos, porque todos ellos tambien
+# superaron los 5 fallos. Lo que la distingue es la DENSIDAD.
+#
+#   ssh-brute-force       -> 5 fallos en 60 s        (volumen, rapido)
+#   ssh-brute-force-slow  -> 5 fallos en 4 h,
+#                            a <= 0,1 fallos/min     (densidad, lento)
+#
+# Las dos reglas no se pisan: la condicion de tasa maxima hace que esta se
+# calle exactamente cuando la otra dispara.
+id: ssh-brute-force-slow
+name: SSH Brute Force (lento y sigiloso)
+description: 5+ intentos fallidos de SSH desde la misma IP en 4 horas, a un ritmo de 0.1 fallos/min o menos - evasion deliberada de las reglas de umbral
+severity: medium
+mitre_attack: T1110.001
+mitre_tactic: Credential Access
+# Una alerta por IP cada 4 horas. Sin esto, cada fallo posterior del atacante
+# lento volveria a disparar: ya esta por encima del umbral y sigue siendo lento.
+cooldown_seconds: 14400
+falsepositives:
+  - Un usuario con una contrasena vieja guardada en un dispositivo que reintenta cada tanto
+  - Un script de backup o monitoreo con credenciales vencidas
+  - Un cliente SSH mal configurado reintentando en segundo plano
+detection:
+  type: low_and_slow
+  match:
+    equals:
+      source: sshd
+      event_type: authentication
+      outcome: failure
+  group_by: src_ip
+  threshold: 5
+  window_seconds: 14400
+  max_events_per_minute: 0.1

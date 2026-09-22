@@ -14,9 +14,25 @@ KQL, Elastic detection rules, Sigma) is doing one of a small number of things:
   3. "unique_count" - one actor touching too many *distinct* values of some
                       field in a window (e.g. one IP hitting 15 different
                       destination ports in 30s -> port scan).
+  4. "low_and_slow" - enough matching events in a LONG window, but arriving
+                      so slowly that no ordinary threshold rule can see them
+                      (e.g. 5 failed SSH logins spread over 3 hours).
 
-We implement exactly those three, because understanding them deeply teaches
-you most of what you need to read (and later write) real Sigma/KQL/SPL rules.
+The first three measure VOLUME. The fourth measures DENSITY, and it exists
+because volume alone cannot separate a patient attacker from a loud one: on
+the real OpenSSH dataset in sample_logs/, every noisy attacker also produced
+5+ failures, so no threshold in a 4-hour window isolates the slow one. What
+does separate them is the rate: 0.03 failures/min versus 0.41 for the next
+slowest and 27.95 for the loudest -- three orders of magnitude.
+
+A "low_and_slow" rule therefore fires only when BOTH are true:
+    count >= threshold                     (enough evidence)
+    count / span_minutes <= max_events_per_minute   (but spread thin)
+The second condition is what a threshold rule cannot express, and it is the
+reason this rule type is not just a threshold rule with a bigger window.
+
+Understanding these four deeply teaches you most of what you need to read
+(and later write) real Sigma/KQL/SPL rules.
 
 Rules are defined declaratively in YAML (see rules_examples/*.yaml) and loaded
 by `load_rules`, which keeps rule *logic* (this file) separate from rule
@@ -35,7 +51,7 @@ import yaml
 
 from siem.models import Alert, Event
 
-VALID_TYPES = {"match", "threshold", "unique_count"}
+VALID_TYPES = {"match", "threshold", "unique_count", "low_and_slow"}
 
 
 @dataclass
@@ -50,6 +66,7 @@ class Rule:
     threshold: int = 1
     window_seconds: int = 60
     unique_field: Optional[str] = None
+    max_events_per_minute: Optional[float] = None
     cooldown_seconds: int = 60
 
     def __post_init__(self) -> None:
@@ -57,6 +74,25 @@ class Rule:
             raise ValueError(f"Rule {self.id}: unknown type '{self.type}' (must be one of {VALID_TYPES})")
         if self.type == "unique_count" and not self.unique_field:
             raise ValueError(f"Rule {self.id}: type 'unique_count' requires 'unique_field'")
+        if self.type == "low_and_slow":
+            if self.max_events_per_minute is None:
+                raise ValueError(
+                    f"Rule {self.id}: type 'low_and_slow' requires 'max_events_per_minute'"
+                )
+            if self.max_events_per_minute <= 0:
+                raise ValueError(
+                    f"Rule {self.id}: 'max_events_per_minute' must be > 0"
+                )
+            # A density rule with a short window is a contradiction: it would
+            # need events spread over more minutes than the window contains.
+            min_span_minutes = self.threshold / self.max_events_per_minute
+            if min_span_minutes * 60 > self.window_seconds:
+                raise ValueError(
+                    f"Rule {self.id}: impossible rule -- {self.threshold} events at "
+                    f"<= {self.max_events_per_minute}/min need at least "
+                    f"{min_span_minutes:.0f} minutes, but window_seconds is "
+                    f"{self.window_seconds} ({self.window_seconds / 60:.0f} minutes)"
+                )
 
 
 def load_rules(paths: list[str] | str) -> list[Rule]:
@@ -89,6 +125,7 @@ def load_rules(paths: list[str] | str) -> list[Rule]:
                 threshold=detection.get("threshold", 1),
                 window_seconds=detection.get("window_seconds", 60),
                 unique_field=detection.get("unique_field"),
+                max_events_per_minute=detection.get("max_events_per_minute"),
                 cooldown_seconds=doc.get("cooldown_seconds", 60),
             )
         )
@@ -186,6 +223,28 @@ class RuleEngine:
                     context={"count": len(window), "window_seconds": rule.window_seconds},
                 )
             return None
+
+        if rule.type == "low_and_slow":
+            window.append(now)
+            self._prune(window, now, rule.window_seconds)
+            if len(window) < rule.threshold:
+                return None
+            span_minutes = (window[-1] - window[0]).total_seconds() / 60
+            if span_minutes <= 0:
+                return None  # everything in the same second: that is not slow
+            rate = len(window) / span_minutes
+            if rate > rule.max_events_per_minute:
+                return None  # loud enough for the ordinary threshold rule to catch
+            return self._fire(
+                rule, event, group_key,
+                context={
+                    "count": len(window),
+                    "span_minutes": round(span_minutes, 1),
+                    "events_per_minute": round(rate, 3),
+                    "max_events_per_minute": rule.max_events_per_minute,
+                    "window_seconds": rule.window_seconds,
+                },
+            )
 
         if rule.type == "unique_count":
             value = _field_value(event, rule.unique_field)
